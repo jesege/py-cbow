@@ -1,14 +1,11 @@
 """
 A simple implementation of the continuous bag of words model
-from word2vec. Code is based on [1].
-
-[1] http://www.folgertkarsdorp.nl/word2vec-an-introduction/
+from word2vec.
 """
 import numpy as np
 from numpy import linalg as la
 from collections import defaultdict
-import utils
-import pickle
+from pycbow import utils
 
 
 class CBOW(object):
