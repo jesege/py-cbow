@@ -137,13 +137,17 @@ def main():
                         dest='win_size', default=2, type=int)
     parser.add_argument('-epochs', help='Number of passes over training data',
                         dest='epochs', default=1, type=int)
+    parser.add_argument('-min_occ', help='Number of times a word must appear in corpus',
+                        dest='min_occ', default=5, type=int)
+    parser.add_argument('-sent_len', help='Minimum sentence length',
+                        dest='sent_len', default=5, type=int)
     args = parser.parse_args()
 
     print("Reading data...")
     data = utils.read_data(args.input_file)
     vocab = utils.vocabulary()
-    sentences = utils.normalize(data, min_word_occurences=0,
-                                min_sentence_length=0)
+    sentences = utils.normalize(data, min_word_occurences=args.min_occ,
+                                min_sentence_length=args.sent_len)
     sentence_list = list(utils.docs2bow(sentences, vocab))
     rng = np.random.RandomState(23)
     print("Data loaded!")
@@ -152,7 +156,6 @@ def main():
     print("Starting training.")
     model = CBOW(vocab, rng, hidden_size=args.vec_dim, learning_rate=args.eta)
     train(model, sentence_list, args.win_size, args.epochs)
-    print(model.most_similar("soccer"))
 
 
 if __name__ == '__main__':
