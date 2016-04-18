@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import re
 from collections import defaultdict, Counter
+import numpy as np
 
 
 def read_data(input_file):
@@ -15,13 +16,25 @@ def normalize(data, min_word_occurences=5, min_sentence_length=10):
     pattern = re.compile("[^\W\d_]+")
     sentences = re.split("[.?!]", data)
     word_occurences = dict(Counter(re.findall(pattern, data)))
+    words_to_remove = subsample(word_occurences)
     for s in sentences:
         if len(s) > min_sentence_length:
             sentence_list = [w for w in re.findall(pattern, s)
-                             if word_occurences.get(w) > min_word_occurences]
+                             if word_occurences.get(w) > min_word_occurences
+                             and w not in words_to_remove]
             result.append(' '.join(sentence_list))
 
     return result
+
+
+def subsample(word_occurences, t=10):
+    removed_words = []
+    for word, freq in word_occurences.items():
+        prob = 1 - (np.sqrt(t/freq))
+        rand = np.random.random(1)[0]
+        if prob > rand:
+            removed_words.append(word)
+    return removed_words
 
 
 def vocabulary():

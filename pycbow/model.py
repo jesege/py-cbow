@@ -2,10 +2,9 @@
 A simple implementation of the continuous bag of words model
 from word2vec.
 """
-import argparse
 import numpy as np
-from numpy import linalg as la
-import utils
+from numpy import linalg
+from pycbow import utils
 import sys
 
 
@@ -14,29 +13,28 @@ class CBOW(object):
     def __init__(self, vocabulary, rng, hidden_size=50,
                  learning_rate=0.025):
         # The vocabulary used in the model
-        self.vocabulary = vocabulary
+        self.word2id = vocabulary
         self.id2word = {v: k for k, v in vocabulary.items()}
+        self.word_ids = sorted([v for v in vocabulary.values()])
         # V is the number of words in our vocabulary
         self.V = len(vocabulary)
-        # N is a hyperparameter of the model, specifying
-        # the number of nodes in the projection layer and resulting
-        # dimensionality of our vectors
+        # hidden_size is the desired dimensionality of the word vectors
         self.N = hidden_size
         # syn0 is our weights from input layer to projection layer,
         # initialized to random numbers
         self.syn0 = np.asarray(
-                            rng.uniform(
-                                low=-(1/(2*self.N)),
-                                high=(1/(2*self.N)),
-                                size=(self.V, self.N)),
-                            dtype=np.float64)
-        # syn1 is our weights from hidden layer to output layer
+            rng.uniform(
+                low=-(1/(2*self.N)),
+                high=(1/(2*self.N)),
+                size=(self.V, self.N)),
+            dtype=np.float64)
+        # syn1 is our output vectors
         self.syn1 = np.asarray(
-                            rng.uniform(
-                                low=-(1/(2*self.N)),
-                                high=(1/(2*self.N)),
-                                size=(self.N, self.V)),
-                            dtype=np.float64)
+            rng.uniform(
+                low=-(1/(2*self.N)),
+                high=(1/(2*self.N)),
+                size=(self.N, self.V)),
+            dtype=np.float64)
         self.eta = learning_rate
 
     def update(self, target_word, context):
@@ -44,48 +42,50 @@ class CBOW(object):
         (a word and its context)."""
         # Accumulate sum of output vectors weighted by prediction error
         eh = np.zeros(self.N)
-        # "Hidden layer" transformation
+        # Projection layer transformation
         h = np.mean(np.array([self.syn0[c] for c in context]), axis=0)
-        # Compute output probabilities
+        # The sum of all exponentiated dot products is quite an expensive
+        # computation, which is why it is done once and not in the loop
         sum_all = sum(np.exp(np.dot(self.syn1.T, h)))
         probabilities = np.exp(np.dot(self.syn1.T, h)) / sum_all
 
-        for index, y in enumerate(probabilities):
-            t = 1 if target_word == index else 0
+        for word, y in enumerate(probabilities):
+            t = 1 if target_word == word else 0
             error = y - t
+            eh += error * self.syn1.T[word]
 
-            eh += error * self.syn1.T[index]
-
-            self.syn1.T[index] -= self.eta * error * h
+            self.syn1.T[word] -= self.eta * error * h
 
         for c in context:
             self.syn0[c] -= (1 / len(context)) * (self.eta * eh)
 
     def most_similar(self, word):
         """Calculate the most similar word using the output
-        matrix (syn0) vectors with cosine similarity.
+        matrix (syn1) vectors with cosine similarity.
         """
         if isinstance(word, str):
-            word = self.vocabulary.get(word)
+            word = self.word2id.get(word)
 
         if word is None:
             return None
 
         most_similar = 0
         highest_similarity = 0
-        for i in self.vocabulary.values():
-            if i != word:
-                cos_sim = cosine_similarity(self.syn1.T[word], self.syn1.T[i])
-                if cos_sim > highest_similarity:
-                    highest_similarity = cos_sim
-                    most_similar = i
+        for i in self.word_ids:
+            if i == word:
+                continue
+
+            cos_sim = cosine_similarity(self.syn1.T[word], self.syn1.T[i])
+            if cos_sim > highest_similarity:
+                highest_similarity = cos_sim
+                most_similar = i
 
         return self.id2word.get(most_similar), highest_similarity
 
 
 def cosine_similarity(u, v):
     """Return the cosine similarity of two vectors."""
-    sim = np.dot(u, v) / (la.norm(u) * la.norm(v))
+    sim = np.dot(u, v) / (linalg.norm(u) * linalg.norm(v))
     return sim
 
 
@@ -96,8 +96,8 @@ def train(cbow_model, sentences, window_size, epochs):
         no_sentences = 0
         for s in sentences:
             if no_sentences % 10 == 0:
-                sys.stdout.write('\rSentence {0} of {1}'.format(no_sentences,
-                                                                len(sentences)))
+                sys.stdout.write('\rSentence {0} of {1}'.format(
+                    no_sentences, len(sentences)))
                 sys.stdout.flush()
 
             training_instances = build_context(s, window_size)
@@ -124,7 +124,9 @@ def build_context(sentence, window_size):
     return training_instances
 
 
-def main():
+if __name__ == '__main__':
+    import argparse
+
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-data', help='Data to train the model',
@@ -137,7 +139,9 @@ def main():
                         dest='win_size', default=2, type=int)
     parser.add_argument('-epochs', help='Number of passes over training data',
                         dest='epochs', default=1, type=int)
-    parser.add_argument('-min_occ', help='Number of times a word must appear in corpus',
+    parser.add_argument('-min_occ', help='''Minimum number of times a word must
+                                          appear in the corpus to be
+                                          included in the vocabulary''',
                         dest='min_occ', default=5, type=int)
     parser.add_argument('-sent_len', help='Minimum sentence length',
                         dest='sent_len', default=5, type=int)
@@ -156,7 +160,3 @@ def main():
     print("Starting training.")
     model = CBOW(vocab, rng, hidden_size=args.vec_dim, learning_rate=args.eta)
     train(model, sentence_list, args.win_size, args.epochs)
-
-
-if __name__ == '__main__':
-    main()
