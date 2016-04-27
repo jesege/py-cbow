@@ -16,12 +16,10 @@ def normalize(data, min_word_occurences=5, min_sentence_length=10):
     pattern = re.compile("[^\W\d_]+")
     sentences = re.split("[.?!]", data)
     word_occurences = dict(Counter(re.findall(pattern, data)))
-    words_to_remove = subsample(word_occurences)
     for s in sentences:
         if len(s) > min_sentence_length:
             sentence_list = [w for w in re.findall(pattern, s)
-                             if word_occurences.get(w) > min_word_occurences
-                             and w not in words_to_remove]
+                             if word_occurences.get(w) > min_word_occurences]
             result.append(' '.join(sentence_list))
 
     return result

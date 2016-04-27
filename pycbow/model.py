@@ -44,10 +44,9 @@ class CBOW(object):
         eh = np.zeros(self.N)
         # Projection layer transformation
         h = np.mean(np.array([self.syn0[c] for c in context]), axis=0)
-        # The sum of all exponentiated dot products is quite an expensive
-        # computation, which is why it is done once and not in the loop
-        sum_all = sum(np.exp(np.dot(self.syn1.T, h)))
-        probabilities = np.exp(np.dot(self.syn1.T, h)) / sum_all
+        # Output transformation
+        exp_dot = np.exp(np.dot(self.syn1.T, h))
+        probabilities = exp_dot / sum(exp_dot)
 
         for word, y in enumerate(probabilities):
             t = 1 if target_word == word else 0
@@ -93,8 +92,7 @@ def train(cbow_model, sentences, window_size, epochs):
     """Update the weights of a continuous-bag-of-words
     model with the given sentences."""
     for i in range(epochs):
-        no_sentences = 0
-        for s in sentences:
+        for no_sentences, s in enumerate(sentences):
             if no_sentences % 10 == 0:
                 sys.stdout.write('\rSentence {0} of {1}'.format(
                     no_sentences, len(sentences)))
@@ -105,7 +103,6 @@ def train(cbow_model, sentences, window_size, epochs):
                 focus_word = inst[0]
                 context = inst[1]
                 cbow_model.update(focus_word, context)
-            no_sentences += 1
 
 
 def build_context(sentence, window_size):
